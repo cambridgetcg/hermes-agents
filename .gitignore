@@ -1,0 +1,4 @@
+node_modules/
+published/*.md
+!published/.gitkeep
+*.log
