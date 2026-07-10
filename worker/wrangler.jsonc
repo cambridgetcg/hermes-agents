@@ -1,0 +1,10 @@
+{
+  "name": "kingdom-hermes",
+  "main": "src/index.js",
+  "compatibility_date": "2024-11-06",
+  "ai": { "binding": "AI" },
+  "kv_namespaces": [{ "binding": "HERMES", "id": "3aa159998a454236889983cc1c5d76b1" }],
+  "triggers": { "crons": ["0 */6 * * *"] },
+  "observability": { "enabled": true }
+  ,"vars": { "BREW_TOKEN": "set-with-wrangler-secret-or-a-var" }
+}
