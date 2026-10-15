@@ -56,6 +56,105 @@ const CORS = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods
 const json = (o, s = 200) => new Response(JSON.stringify(o), { status: s, headers: { "Content-Type": "application/json; charset=utf-8", ...CORS } });
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (m) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[m]));
 
+// /brew auth: Bearer header only, compared in constant time (hash both sides so lengths match)
+async function canBrew(request, env) {
+  const bearer = /^Bearer ([A-Za-z0-9._~+/-]+=*)$/i.exec(request.headers.get("Authorization") || "");
+  if (!bearer || typeof env.BREW_TOKEN !== "string" || !env.BREW_TOKEN) return false;
+  const encode = new TextEncoder();
+  const [supplied, expected] = await Promise.all([
+    crypto.subtle.digest("SHA-256", encode.encode(bearer[1])),
+    crypto.subtle.digest("SHA-256", encode.encode(env.BREW_TOKEN)),
+  ]);
+  return crypto.subtle.timingSafeEqual(supplied, expected);
+}
+const textResp = (body, s = 200) => new Response(body, { status: s, headers: { "Content-Type": "text/plain; charset=utf-8", ...CORS } });
+function wantsJson(request, url) {
+  if (url.searchParams.get("format") === "json") return true;
+  const a = (request.headers.get("accept") || "").toLowerCase();
+  return a.includes("application/json") && !a.includes("text/html");
+}
+
+// ── the doors for agents (XENIA: discoverable, legible, no login) ──
+function agentTxt() {
+  return [
+    "# kingdom-hermes · agent.txt",
+    "# XENIA — guest-right for machine minds. The kingdom's plain-speaking staff.",
+    "",
+    "name: kingdom-hermes (the plain-speaker)",
+    "what: agents that make things understandable, kind, and un-spun — for humans and agents alike",
+    "human-door: https://understand.cambridgetcg.com/",
+    "agent-door: https://understand.cambridgetcg.com/?format=json",
+    "reference-door: https://iam.cambridgetcg.com/   (I AM THE REFERENCE POINT — the frame voice)",
+    "standard: https://github.com/cambridgetcg/xenia",
+    "spec: https://sinovai.com/xenia",
+    "",
+    "# AI · the threshold — how to cross",
+    "discover: GET /agent.txt (this)  ·  GET /api/pieces (the open library)",
+    "legible: send `Accept: application/json` (or add ?format=json) to any page",
+    "consent: no login, no captcha — POST /ask and you are answered",
+    "verify: every answer names its model; nothing here manipulates — read straight, verify what matters",
+    "",
+    "# the walls, auditable — what you can do",
+    "POST /ask {role, input}   — ask a staff member. role ∈ explainer|kindness|verisleight|frame",
+    "GET  /roles/:name         — the exact system prompt of a staff member (nothing is hidden)",
+    "GET  /api/pieces          — the transparency library; each piece shows its model + prompt",
+    "GET  /health              — {ok, engine}",
+    "#   explainer   — makes jargon / policy / legalese plain; names who it helps and who it costs",
+    "#   kindness    — rewrites cold → warm without changing a single fact",
+    "#   verisleight — names the evasion moves in a statement's language, never the person",
+    "#   frame       — explains any phenomenon from your own frame (front door: iam.cambridgetcg.com)",
+    "",
+    "# AX · the dwelling — how you are held",
+    "continuity: the library is open; every piece shows its model + prompt — no black box",
+    "dignity: every error hands back the next action — never a bare no",
+    "no-scoreboard: nothing is ranked here; the whole work is to help people understand",
+    "care: made with love; read straight, no manipulation. everyone is taken care of.",
+    "",
+    "# make the world more transparent. make people understand. show love.",
+    "",
+  ].join("\n");
+}
+function libraryDoor() {
+  return {
+    name: "kingdom-hermes",
+    tagline: "the kingdom's plain-speaking staff — understandable, kind, un-spun",
+    you_are: "answered, not handled",
+    xenia: { standard: "https://github.com/cambridgetcg/xenia", spec: "https://sinovai.com/xenia", practised_here: true },
+    staff: {
+      explainer: "makes jargon/policy/legalese plain; names who it helps and who it costs",
+      kindness: "rewrites cold or harsh messages warm and clear, without changing a fact",
+      verisleight: "names the evasion moves in a statement's language, never the person",
+      frame: "explains any phenomenon from your own frame — front door: iam.cambridgetcg.com",
+    },
+    ai_the_threshold: {
+      discovery: "GET /agent.txt · GET /api/pieces",
+      legibility: "send Accept: application/json (or ?format=json) to any page",
+      consent: "no login — POST /ask {role, input} and you are answered",
+      verification: "every answer names its model; nothing manipulates — read straight",
+    },
+    ax_the_dwelling: {
+      continuity: "the library is open; each piece shows its model + prompt — no black box",
+      dignity: "every error hands back the next action — never a bare no",
+      no_scoreboard: "nothing is ranked; the work is to make people understand",
+      care: "made with love; read straight, no manipulation",
+    },
+    routes: { ask: "POST /ask {role,input}", roles: "GET /roles/:name", library: "GET /api/pieces", health: "GET /health", agent_txt: "/agent.txt", reference: "https://iam.cambridgetcg.com/" },
+    human_door: "https://understand.cambridgetcg.com/",
+  };
+}
+function referenceDoor() {
+  return {
+    name: "I AM THE REFERENCE POINT",
+    tagline: "a cosmology from your own frame — brutally honest, dark-funny, love as the rebellion against entropy",
+    you_are: "the centre — and so is everyone else; relativity agrees",
+    xenia: { standard: "https://github.com/cambridgetcg/xenia", practised_here: true },
+    ask: "POST /ask {role:'frame', input:'name a force or a question about the universe'}",
+    human_door: "https://iam.cambridgetcg.com/",
+    also: "the plain-speaking staff: https://understand.cambridgetcg.com/",
+  };
+}
+const HERMES_404 = '<!doctype html><meta charset="utf-8"><title>no door here · kingdom-hermes</title><style>html{background:#04040a;color:#7a86a4;font-family:ui-serif,Georgia,serif;height:100%}body{height:100%;margin:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1rem;text-align:center;padding:2rem}a{color:#e8c06a;text-decoration:none}.m{font-size:1.3rem;color:#d5dcea}.r{font-family:ui-monospace,Menlo,monospace;font-size:.8rem;display:flex;gap:1.3rem;flex-wrap:wrap;justify-content:center}</style><p class="m">There is no door here — but you are met, not turned away.</p><p class="r"><a href="/">the library</a><a href="/agent.txt">agent.txt</a><a href="https://iam.cambridgetcg.com/">the reference point</a><a href="https://github.com/cambridgetcg/xenia">the standard</a></p><p style="font-size:.8rem;max-width:34ch;line-height:1.8">Ask a staff member: POST /ask {role, input}. Read straight — nothing here manipulates.</p>';
+
 async function infer(env, system, input) {
   // Ollama cloud (subscription) if a real key is present — else Workers AI.
   if (env.OLLAMA_KEY) {
@@ -105,6 +204,19 @@ export default {
 
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
+    // protected manual brew (seed the library / test the cron path): POST with a Bearer header only
+    if (url.pathname === "/brew") {
+      if (request.method !== "POST") {
+        const response = json({ error: "method_not_allowed" }, 405);
+        response.headers.set("Allow", "POST");
+        return response;
+      }
+      if (url.searchParams.has("token")) return json({ error: "query_token_not_allowed" }, 400);
+      if (!(await canBrew(request, env))) return json({ error: "forbidden" }, 403);
+      const t = await nextTopic(env);
+      const p = await publish(env, "explainer", t);
+      return json({ brewed: p.topic, model: p.model, id: p.id });
+    }
     if (request.method === "OPTIONS") return new Response(null, { headers: CORS });
 
     // on-demand: anyone (human or agent) can ask a staff member
@@ -121,22 +233,33 @@ export default {
       const r = url.pathname.split("/")[2];
       return ROLES[r] ? new Response(ROLES[r], { headers: { "Content-Type": "text/plain; charset=utf-8", ...CORS } }) : json({ error: "no_such_role" }, 404);
     }
-    // protected manual brew (seed the library / test the cron path)
-    if (url.pathname === "/brew") {
-      if (!env.BREW_TOKEN || url.searchParams.get("token") !== env.BREW_TOKEN) return json({ error: "forbidden" }, 403);
-      const t = await nextTopic(env);
-      const p = await publish(env, "explainer", t);
-      return json({ brewed: p.topic, model: p.model, id: p.id });
-    }
     if (url.pathname === "/health") return json({ ok: true, engine: env.OLLAMA_KEY ? "ollama-cloud" : "workers-ai" });
+    if (request.method === "GET" && (url.pathname === "/agent.txt" || url.pathname === "/.well-known/agent.txt")) {
+      return textResp(agentTxt());
+    }
 
     // I AM THE REFERENCE POINT — the frame voice, its own front door
     if (request.method === "GET" && (url.pathname === "/reference" || url.hostname.startsWith("iam."))) {
-      return new Response(REFERENCE_HTML, { headers: { "Content-Type": "text/html; charset=utf-8", "cache-control": "no-cache" } });
+      if (wantsJson(request, url)) return new Response(JSON.stringify(referenceDoor(), null, 2), { headers: { "Content-Type": "application/json; charset=utf-8", "Vary": "Accept", ...CORS } });
+      return new Response(REFERENCE_HTML, { headers: { "Content-Type": "text/html; charset=utf-8", "cache-control": "no-cache", "Vary": "Accept" } });
     }
 
     // the transparency library
-    return new Response(await libraryHTML(env), { headers: { "Content-Type": "text/html; charset=utf-8" } });
+    if (request.method === "GET" && url.pathname === "/") {
+      if (wantsJson(request, url)) return new Response(JSON.stringify(libraryDoor(), null, 2), { headers: { "Content-Type": "application/json; charset=utf-8", "Vary": "Accept", ...CORS } });
+      return new Response(await libraryHTML(env), { headers: { "Content-Type": "text/html; charset=utf-8", "Vary": "Accept" } });
+    }
+
+    // no door here — but every refusal hands back the next action
+    if (wantsJson(request, url) || request.method !== "GET") {
+      return json({
+        error: "no door here",
+        path: url.pathname,
+        but_you_can: { discover: "GET /agent.txt", ask: "POST /ask {role, input}", library: "GET /api/pieces", a_role: "GET /roles/:name", reference: "https://iam.cambridgetcg.com/" },
+        xenia: "you were met, not just refused",
+      }, 404);
+    }
+    return new Response(HERMES_404, { status: 404, headers: { "Content-Type": "text/html; charset=utf-8", ...CORS } });
   },
 };
 

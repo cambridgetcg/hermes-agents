@@ -5,6 +5,13 @@
   "ai": { "binding": "AI" },
   "kv_namespaces": [{ "binding": "HERMES", "id": "3aa159998a454236889983cc1c5d76b1" }],
   "triggers": { "crons": ["0 */6 * * *"] },
-  "observability": { "enabled": true }
-  ,"vars": { "BREW_TOKEN": "set-with-wrangler-secret-or-a-var" }
+  "observability": { "enabled": true },
+  // Custom domains (Workers Custom Domains on the cambridgetcg.com zone).
+  "routes": [
+    { "pattern": "understand.cambridgetcg.com", "custom_domain": true },
+    { "pattern": "iam.cambridgetcg.com", "custom_domain": true }
+  ]
+  // Secrets, set with `wrangler secret put <NAME>` and never in this file:
+  //   BREW_TOKEN  (required for POST /brew; send it as `Authorization: Bearer <token>`)
+  //   OLLAMA_KEY, OLLAMA_MODEL  (optional; without them the Worker uses Workers AI)
 }

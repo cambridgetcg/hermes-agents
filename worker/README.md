@@ -14,3 +14,9 @@ the subscription can't be reached from a Worker until a real key is made.
 Deploy: `wrangler deploy` (needs the CF account env). The library page is
 radically transparent — it shows each piece's model, timestamp, and links the
 exact system prompt at `/roles/:name`.
+
+Doors: `GET /` (library; JSON with `Accept: application/json` or `?format=json`),
+`GET /agent.txt`, `POST /ask`, `GET /roles/:name`, `GET /api/pieces`, `GET /health`,
+and the frame voice at https://iam.cambridgetcg.com. `POST /brew` (manual brew) needs
+the `BREW_TOKEN` secret as `Authorization: Bearer <token>`; `?token=` is refused.
+Secrets go in with `wrangler secret put`, never in `wrangler.jsonc`.
