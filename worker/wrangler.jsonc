@@ -6,6 +6,10 @@
   "kv_namespaces": [{ "binding": "HERMES", "id": "3aa159998a454236889983cc1c5d76b1" }],
   "triggers": { "crons": ["0 */6 * * *"] },
   "observability": { "enabled": true },
+  // Live keeps workers.dev and preview URLs on. Say so explicitly: with routes
+  // listed, wrangler would otherwise turn workers.dev off on the next deploy.
+  "workers_dev": true,
+  "preview_urls": true,
   // Custom domains (Workers Custom Domains on the cambridgetcg.com zone).
   "routes": [
     { "pattern": "understand.cambridgetcg.com", "custom_domain": true },
